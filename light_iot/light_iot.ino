@@ -3,14 +3,19 @@
 #include <WebSocketsClient.h>
 #include <ArduinoJson.h>
 #include <key.h>
+#include <ESP32Servo.h>
 
 WebSocketsClient webSocket;
+constexpr int servo_pin = 15;
+Servo light_servo;
 
 void setup() {
   Serial.begin(115200);
   setupWiFi();  
   setupOTA();  
   setupWebSocket();
+  light_servo.attach(servo_pin);
+  light_servo.write(90); 
 }
 
 void loop() {
@@ -82,12 +87,6 @@ void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
     case WStype_TEXT: {
       Serial.printf("Received message: %s\n", payload);
 
-      Serial.print("Raw payload: ");
-      for (size_t i = 0; i < length; i++) {
-        Serial.print((char)payload[i]);
-      }
-      Serial.println();
-
       // JSON 파싱
       StaticJsonDocument<512> doc;
       DeserializationError error = deserializeJson(doc, payload);
@@ -101,7 +100,14 @@ void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
       const char* iot_id = doc["iot_id"];
       const char* message = doc["message"];
 
-      Serial.printf("iot_id: %s, message: %s\n", iot_id, message);
+      if(strcmp(iot_id, "light") == 0){
+        if(strcmp(message, "10") == 0){
+          light_servo.write(10);
+        }
+        else if(strcmp(message, "11") == 0){
+          light_servo.write(170);
+        }
+      }
       break;
     }
     default:
