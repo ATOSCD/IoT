@@ -1,48 +1,135 @@
+#include <WiFi.h>
+#include <ArduinoOTA.h>
+#include <WebSocketsClient.h>
+#include <ArduinoJson.h>
+#include <key.h>
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
 
-const uint16_t kIrLedPin = 14;  // IR LED 연결 핀 (GPIO 4)
+WebSocketsClient webSocket;
+const uint16_t kIrLedPin = 14;  
 IRsend irsend(kIrLedPin);
 
 void setup() {
   Serial.begin(115200);
+  setupWiFi();  
+  setupOTA();
   irsend.begin();
-  Serial.println("시리얼 입력으로 명령 전송 준비됨");
-  Serial.println("입력 예시: power / ch+ / ch- / vol+ / vol-");
+  setupWebSocket();
 }
 
 void loop() {
-  if (Serial.available()) {
-    String command = Serial.readStringUntil('\n');
-    command.trim();
+  ArduinoOTA.handle(); 
+  webSocket.loop(); 
+}
 
-    if (command == "power") {
-      sendRepeated(0x4FB4AB5);
-      Serial.println("전원 버튼 전송 (5회 반복)");
-    } else if (command == "ch+") {
-      sendRepeated(0x4FB40BF);
-      Serial.println("채널 업 전송 (5회 반복)");
-    } else if (command == "ch-") {
-      sendRepeated(0x4FB906F);
-      Serial.println("채널 다운 전송 (5회 반복)");
-    } else if (command == "vol+") {
-      sendRepeated(0x4FBC03F);
-      Serial.println("볼륨 업 전송 (5회 반복)");
-    } else if (command == "vol-") {
-      sendRepeated(0x4FB827D);
-      Serial.println("볼륨 다운 전송 (5회 반복)");
-    } else {
-      Serial.println("알 수 없는 명령입니다.");
+void tvRemote(const char* command){
+  if (strcmp(command, "power") == 0){
+    irsend.sendNEC(0x4FB4AB5);
+    delay(1);
+    irsend.sendNEC(0x4FB4AB5);
+  } else if (strcmp(command, "volup") == 0){
+    irsend.sendNEC(0x4FBC03F);
+    delay(1);
+    irsend.sendNEC(0x4FBC03F);
+  } else if (strcmp(command, "voldown") == 0){
+    irsend.sendNEC(0x4FB827D);
+    delay(1);
+    irsend.sendNEC(0x4FB827D);
+  } else if (strcmp(command, "chup") == 0){
+    irsend.sendNEC(0x4FB40BF);
+    delay(1);
+    irsend.sendNEC(0x4FB40BF);
+  } else if (strcmp(command, "chdown") == 0){
+    irsend.sendNEC(0x4FB906F);
+    delay(1);
+    irsend.sendNEC(0x4FB906F);
+  }
+}
+
+void setupWiFi() {
+  Serial.print("Connecting to WiFi: ");
+  Serial.println(SSID);
+
+  WiFi.begin(SSID, PASSWORD);
+
+  int retries = 0;
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+    if (++retries > 30) {
+      Serial.println("\nWiFi connection failed!");
+      return;
     }
   }
+
+  Serial.println("\nWiFi connected!");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
 }
 
+void setupOTA() {
+  ArduinoOTA.setHostname("ATOSCD-ESP32");
+  ArduinoOTA.setPassword(OTAPASS);
+  ArduinoOTA
+    .onStart([]() {
+      Serial.println("OTA Start");
+    })
+    .onEnd([]() {
+      Serial.println("\nOTA End");
+    })
+    .onProgress([](unsigned int progress, unsigned int total) {
+      Serial.printf("OTA Progress: %u%%\r", (progress / (total / 100)));
+    })
+    .onError([](ota_error_t error) {
+      Serial.printf("OTA Error[%u]: ", error);
+    });
 
-void sendRepeated(uint32_t data) {
-  int count = 1;
-  for (int i = 0; i < count; i++) {
-    irsend.sendNEC(data);
-    delay(20);  // 수신기 수용을 위해 약간의 딜레이 (30~50ms 권장)
+  ArduinoOTA.begin();
+  Serial.println("OTA ready");
+}
+
+void setupWebSocket() {
+  webSocket.begin(ADDRESS, PORT, "/ws/iot");
+  webSocket.onEvent(webSocketEvent);
+}
+
+void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
+  switch (type) {
+    case WStype_CONNECTED:
+      Serial.println("Connected to WebSocket server");
+      //webSocket.sendTXT("{\"iot_id\":\"arduino\", \"message\":\"Hello from Arduino\"}");
+      break;
+
+    case WStype_DISCONNECTED:
+      Serial.println("Disconnected from WebSocket server");
+      break;
+
+    case WStype_TEXT: {
+      Serial.printf("Received message: %s\n", payload);
+
+      // JSON 파싱
+      StaticJsonDocument<512> doc;
+      DeserializationError error = deserializeJson(doc, payload);
+
+      if (error) {
+        Serial.print("JSON parse error: ");
+        Serial.println(error.c_str());
+        return;
+      }
+
+      const char* iot_id = doc["iot_id"];
+      const char* message = doc["message"];
+
+      if(strcmp(iot_id, "tv") == 0){
+        tvRemote(message);
+      }
+      break;
+    }
+    default:
+      break;
   }
 }
+
+
 

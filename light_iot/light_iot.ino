@@ -101,10 +101,10 @@ void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
       const char* message = doc["message"];
 
       if(strcmp(iot_id, "light") == 0){
-        if(strcmp(message, "10") == 0){
+        if(strcmp(message, "on") == 0){
           light_servo.write(10);
         }
-        else if(strcmp(message, "11") == 0){
+        else if(strcmp(message, "off") == 0){
           light_servo.write(170);
         }
       }
