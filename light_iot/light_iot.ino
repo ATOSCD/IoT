@@ -104,9 +104,13 @@ void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
       if(strcmp(iot_id, "light") == 0){
         if(strcmp(message, "on") == 0){
           light_servo.write(60); // 나중에 각도 바꾸기
+          delay(100);
+          light_servo.write(90);
         }
         else if(strcmp(message, "off") == 0){
           light_servo.write(120);
+          delay(100);
+          light_servo.write(90);
         }
       }
       break;
