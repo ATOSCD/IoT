@@ -5,25 +5,24 @@
 #include <key.h>
 #include <ESP32Servo.h>
 
+#define SERVO_PIN 13
 // key.h 에서 wifi, address 바꾸기
 
 WebSocketsClient webSocket;
-constexpr int servo_pin = 15;
 Servo light_servo;
 
 void setup() {
+  light_servo.attach(SERVO_PIN);
+  light_servo.write(90); 
   Serial.begin(115200);
   setupWiFi();  
   setupOTA();  
   setupWebSocket();
-  light_servo.attach(servo_pin);
-  light_servo.write(90); 
 }
 
 void loop() {
   ArduinoOTA.handle(); 
   webSocket.loop(); 
-  
 }
 
 void setupWiFi() {
@@ -104,10 +103,10 @@ void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
 
       if(strcmp(iot_id, "light") == 0){
         if(strcmp(message, "on") == 0){
-          light_servo.write(10); // 나중에 각도 바꾸기
+          light_servo.write(60); // 나중에 각도 바꾸기
         }
         else if(strcmp(message, "off") == 0){
-          light_servo.write(170);
+          light_servo.write(120);
         }
       }
       break;

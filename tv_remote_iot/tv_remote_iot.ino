@@ -7,7 +7,7 @@
 #include <IRsend.h>
 
 WebSocketsClient webSocket;
-const uint16_t kIrLedPin = 14;  
+const uint16_t kIrLedPin = 2;  
 IRsend irsend(kIrLedPin);
 
 void setup() {
